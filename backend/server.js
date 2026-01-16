@@ -74,13 +74,14 @@ app.post('/api/auth/login', async (req, res) => {
        return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    // 4. Generar Token
+// 4. Generar Token (Con respaldo por si falla Render)
     const token = jwt.sign(
       { userId: user.id_usuario, role: user.rol },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'SecretsPlayaBlanca_Respaldo_2026',
       { expiresIn: '24h' }
     );
 
+    // Mandamos la respuesta al navegador para que te deje entrar
     res.json({
       token,
       user: {
@@ -97,14 +98,17 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Middleware de Seguridad (Verificar Token)
+// Middleware de Seguridad (También con seguro)
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   
   if (!token) return res.status(401).json({ error: 'Acceso denegado: Token requerido' });
   
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  // Usamos la misma palabra de respaldo aquí
+  const secret = process.env.JWT_SECRET || 'SecretsPlayaBlanca_Respaldo_2026';
+  
+  jwt.verify(token, secret, (err, user) => {
     if (err) return res.status(403).json({ error: 'Token inválido o expirado' });
     req.user = user;
     next();
