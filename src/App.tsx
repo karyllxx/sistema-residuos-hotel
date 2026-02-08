@@ -7,13 +7,13 @@ import TabletWasteForm from './components/TabletWasteForm';
 import Dashboard from './components/Dashboard';
 import Reports from './components/Reports';
 import Configuration from './components/Configuration';
-// import { initializeStorage, getAuthState, getWasteRecords } from './utils/storage'; // YA NO USAMOS ESTO
 import { WasteRecord } from './types';
+import { apiClient } from './utils/api'; // <--- Importante para la URL de Render
 
 type ActiveTab = 'capture' | 'dashboard' | 'reports' | 'configuration';
 
 function App() {
-  // Intentamos recuperar la sesión si existe, si no, null
+  // 1. Recuperar sesión persistente del LocalStorage
   const storedAuth = localStorage.getItem('auth_storage');
   const initialAuth = storedAuth ? JSON.parse(storedAuth).state : { isAuthenticated: false, user: null };
 
@@ -21,65 +21,66 @@ function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('capture');
   const [records, setRecords] = useState<WasteRecord[]>([]);
 
-  // --- AQUÍ ESTÁ EL CAMBIO: CARGAR DATOS REALES DE LA BASE DE DATOS ---
+  // --- SINCRONIZADOR MAESTRO (POLLING) ---
+  // Mantiene los datos actualizados en todos los dispositivos cada 30 segundos
   useEffect(() => {
     const fetchRecords = async () => {
-      // Solo intentamos cargar si el usuario está logueado
       if (!authState.isAuthenticated) return;
 
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        console.log("🔄 Cargando registros desde la Base de Datos...");
-        
-        const response = await fetch('/api/waste-records', {
-          headers: {
-            'Authorization': `Bearer ${token}` // Usamos tu llave real
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("✅ Registros cargados:", data.length);
-          setRecords(data); // ¡Aquí actualizamos con la verdad!
-        } else {
-          console.error("Error al cargar registros");
+        console.log("🔄 Sincronizando registros con la base de datos...");
+        // Usamos el apiClient que ya tiene configurado el 'auth_token' y la URL de Render
+        const data = await apiClient.getWasteRecords();
+        setRecords(data); 
+        console.log("✅ Datos actualizados correctamente");
+      } catch (error: any) {
+        console.error("Error de sincronización:", error);
+        // Si el servidor rechaza la llave (Error 401), cerramos sesión por seguridad
+        if (error.message.includes('401')) {
+          handleLogout();
         }
-      } catch (error) {
-        console.error("Error de conexión:", error);
       }
     };
 
+    // Carga inmediata al entrar o cambiar de pestaña
     fetchRecords();
-  }, [authState.isAuthenticated, activeTab]); // Se recarga al entrar o al cambiar de pestaña
-  // ---------------------------------------------------------------------
+
+    // Configurar el reloj de actualización (30 segundos)
+    const interval = setInterval(fetchRecords, 30000); 
+
+    return () => clearInterval(interval);
+  }, [authState.isAuthenticated, activeTab]); 
+  // ---------------------------------------
 
   const handleLogin = (user: any) => {
+    // La sesión ya fue guardada en Login.tsx, aquí solo activamos el estado
     setAuthState({ isAuthenticated: true, user });
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    console.log("🚪 Limpiando sesión y tokens...");
+    // Borramos todos los posibles nombres de token para evitar conflictos
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_storage');
+    localStorage.removeItem('token');
+    
     setAuthState({ isAuthenticated: false, user: null });
     setActiveTab('capture');
-    setRecords([]); // Limpiamos los datos al salir
+    setRecords([]); 
   };
 
   const handleRecordAdded = (record: WasteRecord) => {
-    // Agregamos el nuevo registro a la lista visualmente (sin recargar todo)
+    // Actualización visual instantánea tras capturar
     setRecords(prev => [record, ...prev]);
   };
 
-  const handleRecordDeleted = () => {
-    // Si borras algo, recargamos la lista del servidor para estar seguros
-    // (Podrías optimizarlo filtrando el array local, pero esto es más seguro)
-    const token = localStorage.getItem('token');
-    if(token) {
-        fetch('/api/waste-records', { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(data => setRecords(data));
+  const handleRecordDeleted = async () => {
+    // Tras borrar un registro, pedimos la lista actualizada al servidor
+    try {
+      const data = await apiClient.getWasteRecords();
+      setRecords(data);
+    } catch (error) {
+      console.error("Error al refrescar tras borrar:", error);
     }
   };
 
@@ -87,7 +88,7 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Definir pestañas según el rol
+  // Definir pestañas según el rol (Operador o Administrador)
   const tabs = authState.user?.role === 'operator' ? [
     {
       id: 'capture' as const,
@@ -124,7 +125,7 @@ function App() {
 
   return (
     <Layout user={authState.user} onLogout={handleLogout}>
-      {/* Tab Navigation */}
+      {/* Navegación Principal */}
       <div className="mb-8">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
@@ -155,7 +156,7 @@ function App() {
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Renderizado de Vistas */}
       <div>
         {activeTab === 'capture' && (
           authState.user?.role === 'operator' ? (

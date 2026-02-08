@@ -1,5 +1,5 @@
 // API client para comunicación con backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = 'https://residuos-backend-7v15.onrender.com/api'; // VERSION FINAL 3
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -12,7 +12,7 @@ class ApiClient {
       ...options,
     };
 
-    // Agregar token de autenticación si existe
+    // Token de autenticación si existe
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers = {
@@ -30,18 +30,15 @@ class ApiClient {
     return response.json();
   }
 
-  // Autenticación
+ // Autenticación
   async login(username: string, password: string) {
+    console.log("INTENTANDO CONECTAR A RENDER...");  // 
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
   }
-
-  async logout() {
-    return this.request('/auth/logout', { method: 'POST' });
-  }
-
+  
   // Usuarios
   async getUsers() {
     return this.request('/users');

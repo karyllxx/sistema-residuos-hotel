@@ -17,8 +17,8 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
-      // 1. Enviamos el usuario y contraseña al SERVIDOR
-      const response = await fetch('/api/auth/login', {
+      // 1. Enviamos el usuario y contraseña al SERVIDOR DE RENDER
+      const response = await fetch('https://residuos-backend-7v15.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,14 +32,13 @@ export default function Login({ onLogin }: LoginProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        // Si el servidor dice que no, mostramos el error
         throw new Error(data.error || 'Usuario o contraseña incorrectos');
       }
 
-      // 2. Si el servidor dice SÍ: Guardamos la "llave" (Token)
-      localStorage.setItem('token', data.token);
+      // 2. UNIFICACIÓN DE LLAVES: Guardamos como 'auth_token' para que coincida con api.ts
+      localStorage.setItem('auth_token', data.token);
       
-      // Guardamos datos de sesión para que no se cierre al recargar
+      // Guardamos datos de sesión persistente
       const authData = {
         isAuthenticated: true,
         user: { ...data.user, token: data.token }
@@ -51,7 +50,6 @@ export default function Login({ onLogin }: LoginProps) {
 
     } catch (err: any) {
       console.error("Error Login:", err);
-      // Si falla la conexión o la contraseña está mal
       setError(err.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);
@@ -129,7 +127,6 @@ export default function Login({ onLogin }: LoginProps) {
               )}
             </button>
           </form>
-
         </div>
       </div>
     </div>

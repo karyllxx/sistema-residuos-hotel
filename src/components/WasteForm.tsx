@@ -103,7 +103,7 @@ export default function WasteForm({ user, onRecordAdded }: WasteFormProps) {
 
 
       // 2. ENVIAR DATOS AL BACKEND (Fetch)
-      const response = await fetch('/api/waste-records', {
+      const response = await fetch('https://residuos-backend-7v15.onrender.com/api/waste-records', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

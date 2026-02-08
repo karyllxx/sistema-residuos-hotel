@@ -16,7 +16,7 @@ export default defineConfig({
     {
       name: 'copy-htaccess',
       closeBundle() {
-         // (Aquí iría lo de htaccess, lo dejamos simple para que no estorbe)
+         // (Aquí iría lo de htaccess, se deja simple para que no estorbe)
       }
     }
   ],
